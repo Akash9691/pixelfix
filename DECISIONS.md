@@ -1,0 +1,17 @@
+# Decisions
+
+1. **Project folder** `pixelfix/` inside the user's folder (its name contains `&`, which can break build tools).
+2. **Design**: UI UX Pro Max skill installed (`.claude/skills`), its recommendation (Inter, violet + cyan, dark) matches the brief → used as is, see DESIGN.md.
+3. **Inference architecture**: instead of `IsolateInterpreter` (nested-list conversion is slow for 512×512×4 tensors) every loaded model owns a **long-lived worker isolate** that creates the interpreter itself and exchanges `Float32List` as raw bytes (`TransferableTypedData`). Pixel pre/post-processing runs in the same isolates.
+4. **MI-GAN**: NCHW, mask 1 = keep (model card + shape check). GPU delegate is tried first; if creation, allocation, warm-up fails or the warm-up output contains NaN the worker falls back to CPU (4 threads). XNNPACK is reported to decline the fp16 graph on some devices; CPU still works through the reference/XNNPACK path (verified in Python: 1.1 s).
+5. **MagicTouch**: runs directly (4th channel = disk radius 20/512, rgb 0..1), so the DeepLabV3 fallback is not needed.
+6. **Model budget**: Real-ESRGAN (4.9 MB) is the primary SR model. The TF-Hub ESRGAN fallback (5 MB) is **not bundled**, it keeps the bundle at ≈ 31.9 MB decimal (≈ 30.4 MiB); it is kept in the fetch script for experiments only. (Revisit in Phase 11 with the real APK size.)
+7. **Windows path with `&`**: Gradle's launcher breaks on `tflite&flutter`. All builds run from a directory junction `C:\pixelfix` that points to this project (see README).
+8. **Select merged into the mask canvas**: Erase and Select tools share one mask (bitmap base from MagicTouch + vector brush strokes). A tap in Select adds the object; dragging paints. This keeps "tap -> refine with brush -> erase" in one flow.
+9. **JPG / WebP encoding** uses a ~40-line Kotlin MethodChannel (`Bitmap.compress`) instead of an extra package: `dart:ui` only encodes PNG and the pure-Dart `image` encoder is slow on 12 MP photos. JPEG flattens transparency onto white.
+10. **Canvas image**: the editor keeps the working image (<= 3000 px at import, <= 4096 px after Upscale) as a GPU `ui.Image`; the canvas draws it scaled by the GPU. Originals above 3000 px are never decoded at full size (`ImageDescriptor` with target size).
+11. **Upscale sizes**: the network is always x4. For 2x it runs on the full image and the result is shrunk (better quality than running on a half-size image). Inputs whose x4 result would exceed 4096 px are shrunk first.
+12. **Style apply**: preview is the whole photo squeezed to 384 px (fast, one call). Apply runs overlapping 384 px tiles at up to 1152 px work size and resizes back; its look can differ slightly from the preview. The tile scale is a compromise because the transfer network has a fixed 384 input.
+13. **ESRGAN TF-Hub fallback**: not bundled (budget). `fetch_models` no longer downloads it.
+14. **Emulator caveat**: the Android emulator image available here is x86_64 CPU only; GPU-delegate and speed numbers must come from a real phone (BENCHMARKS.md).
+15. **APK size**: measured arm64 release = 56.6 MB with stored models. Breakdown: models 30 MB, libflutter 10.8 MB, libapp 6 MB, TFLite + GPU native libs 6.7 MB. The 45 MB target cannot be met together with the 30 MB model budget. Models are therefore left compressed (`noCompress` removed, about -4 MB) because they are copied to a file before use. Further levers: drop MagicTouch (-6 MB), or deliver the model pack as an on-demand asset.
