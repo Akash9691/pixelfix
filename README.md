@@ -14,6 +14,14 @@ PixelFix edits photos with small neural networks that run **entirely on the phon
 
 Screenshots: _add after running on your phone_ (`docs/screenshots/`).
 
+## Download
+
+- **arm64-v8a** (most phones): https://github.com/Akash9691/pixelfix/releases/download/v1.0.0/PixelFix-arm64-v8a.apk
+- **armeabi-v7a** (older 32-bit phones): https://github.com/Akash9691/pixelfix/releases/download/v1.0.0/PixelFix-armeabi-v7a.apk
+- All releases: https://github.com/Akash9691/pixelfix/releases
+
+Allow "Install unknown apps" for your browser/file manager when installing.
+
 ## Architecture
 
 ```mermaid
